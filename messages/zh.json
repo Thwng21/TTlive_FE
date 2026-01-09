@@ -1,0 +1,55 @@
+{
+  "HomePage": {
+    "title": "与陌生人聊天。安全。",
+    "subtitle": "无需登录。只需与真实的人进行真实的对话。纯粹匿名。纯粹是你自己。",
+    "startChat": "开始聊天",
+    "online": "当前在线",
+    "features": {
+      "camera": "相机可选",
+      "encrypted": "加密",
+      "genz": "仅限Z世代"
+    },
+    "alwaysFree": "永远免费 • 无需信用卡"
+  },
+  "Footer": {
+    "safetyCenter": "安全中心",
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "copyright": "© 2024 AnonChat。为连接而生。"
+  },
+  "Auth": {
+    "welcome": "欢迎回来",
+    "subtitle": "请输入您的详细信息以访问您的帐户。",
+    "login": "登录",
+    "register": "开始免费试用",
+    "continueWith": "或继续使用",
+    "continueGoogle": "使用 Google 继续",
+    "email": "电子邮件地址",
+    "password": "密码",
+    "rememberMe": "记住我",
+    "forgotPassword": "忘记密码？",
+    "notMember": "不是会员？",
+    "safety": "端到端加密",
+    "privacy": "我们绝不会出售您的数据。",
+    "safeSpace": "您的安全空间。",
+    "connectAuthentic": "与您的部落真实连接。没有滤镜，只有在感觉像家一样的地方进行的真实对话。",
+    "joinFriends": "加入 10k+ 在线好友",
+    "privacyPolicy": "隐私政策",
+    "termsOfService": "服务条款",
+    "createAccount": "创建一个帐户",
+    "joinUs": "加入 Vibe！",
+    "alreadyMember": "已经是会员？",
+    "signUp": "注册",
+    "orSignUpWithEmail": "或使用电子邮件注册",
+    "cozyCorner": "互联网上舒适的角落正等着您。"
+  },
+  "StrangerChat": {
+    "waiting": "正在寻找陌生人...",
+    "connected": "您正在与陌生人聊天。打个招呼吧！",
+    "disconnected": "陌生人已断开连接。",
+    "placeholder": "输入消息...",
+    "send": "发送",
+    "you": "你",
+    "stranger": "陌生人"
+  }
+}

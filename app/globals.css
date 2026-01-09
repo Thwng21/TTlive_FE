@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme inline {
+  /* Brand Colors */
+  --color-primary: #f9f506;
+  --color-primary-hover: #e6e205;
+  
+  --color-background-light: #f8f8f5;
+  --color-background-dark: #23220f;
+  
+  /* Auth Theme Colors */
+  --color-auth-dark: #0f172a;
+  --color-auth-deep: #0f1115;
+  --color-auth-card: #1e293b;
+  --color-auth-card-deep: #181a1f;
+  
+  --color-mint-green: #6ee7b7;
+  --color-rose-pink: #fb7185;
+  --color-rose-pink-hover: #f43f5e;
+  --color-rose-deep: #f43f5e;
+  
+  /* Template Compatibility Aliases */
+  --color-rose-accent: var(--color-rose-pink);
+  --color-mint: var(--color-mint-green);
+  --color-surface-dark: #2a2915; /* Matching the dark home theme roughly */
+  --color-panel-dark: #1e1e1e;
+
+  /* Fonts */
+  --font-display: var(--font-spline-sans), "Spline Sans", sans-serif;
+  --font-space: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+  --font-inter: var(--font-inter), "Inter", sans-serif;
+
+  /* Animations */
+  --animate-float: float 10s infinite ease-in-out;
+  --animate-float-delayed: float 12s infinite ease-in-out 2s;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fade-in-up: fadeInUp 0.5s ease-out forwards;
+
+  @keyframes float {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Base Styles */
+:root {
+  --foreground: #1c1c0d;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #fcfcf8;
   }
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

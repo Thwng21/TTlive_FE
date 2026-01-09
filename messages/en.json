@@ -1,0 +1,55 @@
+{
+  "HomePage": {
+    "title": "Talk to strangers. Safely.",
+    "subtitle": "No login required. Just real conversations with real people. Purely anonymous. Purely you.",
+    "startChat": "Start Chat",
+    "online": "Online Now",
+    "features": {
+      "camera": "Camera Optional",
+      "encrypted": "Encrypted",
+      "genz": "Gen Z Only"
+    },
+    "alwaysFree": "Always free • No credit card"
+  },
+  "Footer": {
+    "safetyCenter": "Safety Center",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "copyright": "© 2024 AnonChat. Built for connections."
+  },
+  "Auth": {
+    "welcome": "Welcome back",
+    "subtitle": "Enter your details to access your account.",
+    "login": "Sign in",
+    "register": "Start a free trial",
+    "continueWith": "Or continue with",
+    "continueGoogle": "Continue with Google",
+    "email": "Email address",
+    "password": "Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "notMember": "Not a member?",
+    "safety": "End-to-end encrypted",
+    "privacy": "We never sell your data.",
+    "safeSpace": "Your safe space.",
+    "connectAuthentic": "Connect authentically with your tribe. No filters, just real conversations in a place that feels like home.",
+    "joinFriends": "Join 10k+ friends online",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "createAccount": "Create an account",
+    "joinUs": "Join the Vibe!",
+    "alreadyMember": "Already a member?",
+    "signUp": "Sign up",
+    "orSignUpWithEmail": "or sign up with email",
+    "cozyCorner": "Your cozy corner of the internet awaits."
+  },
+  "StrangerChat": {
+    "waiting": "Looking for a stranger...",
+    "connected": "You are now chatting with a random stranger. Say hi!",
+    "disconnected": "Stranger disconnected.",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "you": "You",
+    "stranger": "Stranger"
+  }
+}

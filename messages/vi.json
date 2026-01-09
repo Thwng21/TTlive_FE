@@ -1,0 +1,55 @@
+{
+  "HomePage": {
+    "title": "Trò chuyện với người lạ. An toàn.",
+    "subtitle": "Không cần đăng nhập. Chỉ là những cuộc trò chuyện thực với người thật. Hoàn toàn ẩn danh. Hoàn toàn là chính bạn.",
+    "startChat": "Bắt đầu chat",
+    "online": "Đang trực tuyến",
+    "features": {
+      "camera": "Tùy chọn Camera",
+      "encrypted": "Được mã hóa",
+      "genz": "Chỉ dành cho Gen Z"
+    },
+    "alwaysFree": "Luôn miễn phí • Không cần thẻ tín dụng"
+  },
+  "Footer": {
+    "safetyCenter": "Trung tâm an toàn",
+    "terms": "Điều khoản dịch vụ",
+    "privacy": "Chính sách bảo mật",
+    "copyright": "© 2024 AnonChat. Được xây dựng để kết nối."
+  },
+  "Auth": {
+    "welcome": "Chào mừng trở lại",
+    "subtitle": "Nhập thông tin chi tiết để truy cập tài khoản của bạn.",
+    "login": "Đăng nhập",
+    "register": "Dùng thử miễn phí",
+    "continueWith": "Hoặc tiếp tục với",
+    "continueGoogle": "Tiếp tục với Google",
+    "email": "Địa chỉ email",
+    "password": "Mật khẩu",
+    "rememberMe": "Ghi nhớ đăng nhập",
+    "forgotPassword": "Quên mật khẩu?",
+    "notMember": "Chưa là thành viên?",
+    "safety": "Mã hóa đầu cuối",
+    "privacy": "Chúng tôi không bao giờ bán dữ liệu của bạn.",
+    "safeSpace": "Không gian an toàn của bạn.",
+    "connectAuthentic": "Kết nối chân thực với cộng đồng của bạn. Không bộ lọc, chỉ là những cuộc trò chuyện thực sự ở nơi cảm thấy như nhà.",
+    "joinFriends": "Tham gia cùng 10k+ bạn bè trực tuyến",
+    "privacyPolicy": "Chính sách bảo mật",
+    "termsOfService": "Điều khoản dịch vụ",
+    "createAccount": "Tạo tài khoản",
+    "joinUs": "Tham gia Vibe!",
+    "alreadyMember": "Đã là thành viên?",
+    "signUp": "Đăng ký",
+    "orSignUpWithEmail": "hoặc đăng ký bằng email",
+    "cozyCorner": "Góc nhỏ ấm cúng của bạn trên internet đang chờ đón."
+  },
+  "StrangerChat": {
+    "waiting": "Đang tìm người lạ...",
+    "connected": "Bạn đang chat với người lạ. Hãy nói xin chào!",
+    "disconnected": "Người lạ đã thoát.",
+    "placeholder": "Nhập tin nhắn...",
+    "send": "Gửi",
+    "you": "Bạn",
+    "stranger": "Người lạ"
+  }
+}
