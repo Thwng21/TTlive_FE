@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from '@/src/i18n/navigation';
+import { useLocale } from 'next-intl';
 import Cookies from 'js-cookie';
 import { authService } from '@/services/auth.service';
 import { LoginDto, RegisterDto } from '@/types/auth';
@@ -11,6 +12,7 @@ import { disconnectSocket } from '@/services/socket.service';
 
 export const useAuth = () => {
     const router = useRouter();
+    const locale = useLocale();
     const { showToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export const useAuth = () => {
             setTimeout(() => {
                 // Force full reload to ensure cookies are fresh and middleware processes redirection correctly
                 // This fixes mobile login freeze issues
-                window.location.href = '/stranger'; 
+                window.location.href = `/${locale}/stranger`; 
             }, 1000);
         } catch (err: any) {
             setError(err.message);
@@ -44,14 +46,10 @@ export const useAuth = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await authService.register(data);
-            localStorage.setItem('accessToken', response.access_token);
-            Cookies.set('accessToken', response.access_token, { expires: 7 });
-            localStorage.setItem('user', JSON.stringify(response.user));
-            Cookies.set('user', JSON.stringify(response.user), { expires: 7 });
-
-            showToast("Success", "Account created successfully!", "success");
-            router.push('/stranger');
+            await authService.register(data);
+            
+            showToast("Success", "Account created successfully! Please login.", "success");
+            router.push('/login');
         } catch (err: any) {
             setError(err.message);
             showToast("Registration Failed", err.message, "error");

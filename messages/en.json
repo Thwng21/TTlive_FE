@@ -50,6 +50,21 @@
     "placeholder": "Type a message...",
     "send": "Send",
     "you": "You",
-    "stranger": "Stranger"
+    "stranger": "Stranger",
+    "welcomeTitle": "Hello, {name}!",
+    "welcomeSubtitle": "Ready to meet someone new?",
+    "displayName": "Display Name",
+    "gender": "Gender",
+    "address": "Location",
+    "notSet": "Not set"
+  },
+  "Welcome": {
+    "title": "Hello, {name}!",
+    "subtitle": "This is your visible information while chatting",
+    "displayName": "Display Name",
+    "gender": "Gender",
+    "address": "Address",
+    "startChat": "Start Finding Strangers",
+    "notSet": "Not set"
   }
 }

@@ -10,7 +10,7 @@ type Message = {
 };
 
 class ChatStore {
-    status: 'idle' | 'searching' | 'connected' | 'disconnected' = 'searching';
+    status: 'idle' | 'searching' | 'connected' | 'disconnected' = 'idle';
     messages: Message[] = [];
     roomId: string | null = null;
     listeners: Listener[] = [];

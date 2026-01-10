@@ -50,6 +50,21 @@
     "placeholder": "Nhập tin nhắn...",
     "send": "Gửi",
     "you": "Bạn",
-    "stranger": "Người lạ"
+    "stranger": "Người lạ",
+    "welcomeTitle": "Xin chào, {name}!",
+    "welcomeSubtitle": "Sẵn sàng gặp gỡ người bạn mới?",
+    "displayName": "Tên hiển thị",
+    "gender": "Giới tính",
+    "address": "Địa chỉ",
+    "notSet": "Chưa cập nhật"
+  },
+  "Welcome": {
+    "title": "Xin chào, {name}!",
+    "subtitle": "Đây là thông tin hiển thị của bạn khi trò chuyện",
+    "displayName": "Tên hiển thị",
+    "gender": "Giới tính",
+    "address": "Địa chỉ",
+    "startChat": "Bắt đầu tìm người trò chuyện",
+    "notSet": "Chưa cập nhật"
   }
 }

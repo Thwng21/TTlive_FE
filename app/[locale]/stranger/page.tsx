@@ -99,7 +99,14 @@ export default function StrangerChatPage() {
     const [isSwapped, setIsSwapped] = useState(false); // For swapping main/pip view
     const [isInitiator, setIsInitiator] = useState(false);
     const [pendingOffer, setPendingOffer] = useState<any>(null);
+    const [isStarted, setIsStarted] = useState(false);
     
+    // Ref to track start status continuously without stale closures
+    const isStartedRef = useRef(isStarted);
+    useEffect(() => {
+        isStartedRef.current = isStarted;
+    }, [isStarted]);
+
     // Voice Message State
     const [isRecording, setIsRecording] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -740,17 +747,38 @@ export default function StrangerChatPage() {
     };
 
     const joinQueueWithUser = () => {
+        // Use ref for accurate "started" state check inside listeners
+        if (!isStartedRef.current) return;
         const userId = getUserIdFromStorage();
         console.log("Joining queue with userId:", userId);
         socket?.emit('joinQueue', { userId });
+    };
+
+    const handleStart = () => {
+        setIsStarted(true);
+        // Manually update ref immediately for the below call to work
+        isStartedRef.current = true;
+        chatStore.setStatus('searching');
+        joinQueueWithUser();
     };
 
     const findNewStranger = () => {
         setFriendRequestStatus('none');
         setReceivedRequestData(null);
         chatStore.reset();
+        chatStore.setStatus('searching');
         joinQueueWithUser();
     }
+
+    const handleStop = () => {
+        setIsStarted(false);
+        chatStore.reset();
+        socket?.emit('leaveQueue');
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            setLocalStream(null);
+        }
+    };
 
   return (
     <div className="font-display h-[100dvh] flex flex-col bg-background-dark text-white overflow-hidden">
@@ -763,6 +791,15 @@ export default function StrangerChatPage() {
                 <h1 className="text-xl font-bold tracking-tight">AnonChat</h1>
             </div>
             <div className="flex items-center gap-4">
+                {isStarted && (
+                     <button
+                        onClick={handleStop}
+                        className="hidden sm:flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg border border-red-500/20 transition-all font-medium text-sm"
+                     >
+                        <span className="material-symbols-outlined text-lg">logout</span>
+                        Dừng tìm kiếm
+                     </button>
+                )}
                 <div className="hidden sm:block">
                      <LanguageSwitcher />
                 </div>
@@ -772,7 +809,54 @@ export default function StrangerChatPage() {
 
         {/* Main Content Area */}
         <main className="flex-1 flex overflow-hidden relative">
-            <div className="w-full h-full max-w-[1600px] mx-auto flex flex-col lg:flex-row">
+            {!isStarted && (
+                <div className="absolute inset-0 z-[100] flex items-center justify-center bg-auth-dark/95 backdrop-blur-md">
+                     <div className="max-w-md w-full bg-slate-900/50 backdrop-blur-md border border-white/10 rounded-3xl p-8 shadow-2xl relative mx-4">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                <span className="material-symbols-outlined text-4xl text-white">person</span>
+                            </div>
+                            <h1 className="text-3xl font-bold text-white mb-2">
+                                {t.rich('welcomeTitle', {
+                                    defaultMessage: 'Xin chào, {name}!',
+                                    name: currentUser?.displayName || currentUser?.username || 'Bạn'
+                                })}
+                            </h1>
+                            <p className="text-slate-400">
+                                {t('welcomeSubtitle', { defaultMessage: 'Sẵn sàng gặp gỡ người bạn mới?' })}
+                            </p>
+                        </div>
+
+                        <div className="space-y-4 mb-8">
+                            <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                                <div className="text-sm text-slate-500 mb-1">{t('displayName', { defaultMessage: 'Tên hiển thị' })}</div>
+                                <div className="text-lg text-white font-medium">{currentUser?.displayName || currentUser?.username || t('notSet', { defaultMessage: 'Chưa cập nhật' })}</div>
+                            </div>
+                            <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex gap-4">
+                                <div className="flex-1">
+                                    <div className="text-sm text-slate-500 mb-1">{t('gender', { defaultMessage: 'Giới tính' })}</div>
+                                    <div className="text-lg text-white font-medium capitalize">{currentUser?.gender ? (currentUser.gender === 'male' ? 'Nam' : (currentUser.gender === 'female' ? 'Nữ' : 'Khác')) : t('notSet', { defaultMessage: 'Chưa cập nhật' })}</div>
+                                </div>
+                                <div className="flex-1 border-l border-white/10 pl-4">
+                                    <div className="text-sm text-slate-500 mb-1">{t('address', { defaultMessage: 'Địa chỉ' })}</div>
+                                    <div className="text-lg text-white font-medium">
+                                        {currentUser?.address?.city ? currentUser.address.city : t('notSet', { defaultMessage: 'Chưa cập nhật' })}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleStart}
+                            className="w-full bg-primary hover:bg-primary-hover text-black font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] active:scale-[0.98] duration-200 flex items-center justify-center gap-2"
+                        >
+                            <span className="material-symbols-outlined">rocket_launch</span>
+                            Start Finding Stranger
+                        </button>
+                    </div>
+                </div>
+            )}
+            <div className="w-full h-full flex flex-col lg:flex-row">
                 
                 {/* Left Column: Video/Interaction Area (Expanded) */}
                 <section className={`
@@ -839,7 +923,7 @@ export default function StrangerChatPage() {
                                         autoPlay 
                                         playsInline
                                         className="w-full h-full object-cover"
-                                        style={{ transform: 'none' }} // Ensure remote is NOT mirrored
+                                        /* Remote video should NOT be mirrored */
                                     />
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900/50">
@@ -871,8 +955,7 @@ export default function StrangerChatPage() {
                                         autoPlay 
                                         muted 
                                         playsInline
-                                        className="w-full h-full object-cover"
-                                        style={{ transform: 'scaleX(-1)' }} // Always mirror self-view
+                                        className="w-full h-full object-cover scale-x-[-1]"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500">
