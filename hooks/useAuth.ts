@@ -28,7 +28,9 @@ export const useAuth = () => {
             
             showToast("Success", "Login successful! Redirecting...", "success");
             setTimeout(() => {
-                 router.push('/stranger'); // Redirect to Stranger Chat (Main App) after login
+                // Force full reload to ensure cookies are fresh and middleware processes redirection correctly
+                // This fixes mobile login freeze issues
+                window.location.href = '/stranger'; 
             }, 1000);
         } catch (err: any) {
             setError(err.message);
