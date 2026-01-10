@@ -3,6 +3,7 @@ import { ArrowRight, VideoOff, Lock, Smile } from 'lucide-react';
 import { StatsBadge } from './StatsBadge';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/src/i18n/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 
 export const HeroSection = () => {
   const t = useTranslations('HomePage');
@@ -60,6 +61,21 @@ export const HeroSection = () => {
         <p className="text-xs font-semibold uppercase tracking-widest text-[#1c1c0d]/40 dark:text-white/30">
           {t('alwaysFree')}
         </p>
+
+        {/* QR Code Section */}
+        <div className="mt-8 p-4 bg-white/50 dark:bg-black/20 rounded-2xl border border-black/5 dark:border-white/5 backdrop-blur-sm flex flex-col items-center gap-3 animate-fade-in-up">
+           <div className="bg-white p-2 rounded-xl shadow-lg">
+             <QRCodeSVG 
+                value="https://ttlive-kappa.vercel.app/vi"
+                size={120}
+                level="M"
+                includeMargin={false}
+             />
+           </div>
+           <p className="text-xs font-medium text-[#1c1c0d]/60 dark:text-white/50">
+             Quét để truy cập trên điện thoại
+           </p>
+        </div>
       </div>
     </div>
   );

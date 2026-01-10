@@ -1,8 +1,9 @@
 'use client';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import Cookies from 'js-cookie';
 import { useSocket } from '@/hooks/useSocket';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { UserMenu } from '@/components/common/UserMenu';
@@ -91,6 +92,17 @@ export default function StrangerChatPage() {
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const localVideoRef = useRef<HTMLVideoElement>(null);
+    const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [isSwapped, setIsSwapped] = useState(false); // For swapping main/pip view
+    const [isInitiator, setIsInitiator] = useState(false);
+    const [pendingOffer, setPendingOffer] = useState<any>(null);
+    
+    // Voice Message State
+    const [isRecording, setIsRecording] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     // Load user info
     useEffect(() => {
@@ -208,6 +220,7 @@ export default function StrangerChatPage() {
             chatStore.setStatus('connected');
             chatStore.setRoomId(data.roomId);
             chatStore.setMessages([]);
+            setIsInitiator(data.initiator);
             
             // Set Partner Profile
             if (data.partnerInfo) {
@@ -375,6 +388,217 @@ export default function StrangerChatPage() {
         };
     }, [socket]); // Removed locale dependency to prevent listener churn
 
+     // --- WebRTC Logic ---
+    const resetPeerConnection = () => {
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
+        }
+        setRemoteStream(null);
+    };
+
+    const createPeerConnection = useCallback(() => {
+        if (peerConnectionRef.current) return peerConnectionRef.current;
+
+        const pc = new RTCPeerConnection({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+            ]
+        });
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate && roomId && socket) {
+                socket.emit('signal', {
+                    roomId,
+                    signal: { type: 'candidate', candidate: event.candidate }
+                });
+            }
+        };
+
+        pc.ontrack = (event) => {
+            console.log('Received remote track', event.streams[0]);
+            setRemoteStream(event.streams[0]);
+            if (remoteVideoRef.current) {
+                remoteVideoRef.current.srcObject = event.streams[0];
+            }
+        };
+
+        if (localStream) {
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+        }
+
+        peerConnectionRef.current = pc;
+        return pc;
+    }, [roomId, socket, localStream]);
+
+    // Helper to process offer
+    const processOffer = useCallback(async (offerSignal: any) => {
+        const pc = peerConnectionRef.current || createPeerConnection();
+        if (pc.signalingState !== 'stable') return; // Avoid glare
+        
+        await pc.setRemoteDescription(new RTCSessionDescription(offerSignal));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket?.emit('signal', { roomId, signal: answer });
+    }, [createPeerConnection, roomId, socket]);
+
+    // Handle incoming signals
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleSignal = async (data: { senderId: string, signal: any }) => {
+            const { signal } = data;
+            
+            try {
+                if (signal.type === 'offer') {
+                    if (localStream) {
+                        await processOffer(signal);
+                    } else {
+                        console.log("Received offer but strictly waiting for local stream...");
+                        setPendingOffer(signal);
+                    }
+                } else if (signal.type === 'answer') {
+                    const pc = peerConnectionRef.current;
+                    if (pc && pc.signalingState === 'have-local-offer') {
+                       await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                    }
+                } else if (signal.type === 'candidate' && signal.candidate) {
+                    const pc = peerConnectionRef.current || createPeerConnection();
+                    await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                }
+            } catch (err) {
+                console.error('Error handling signal:', err);
+            }
+        };
+
+        socket.on('signal', handleSignal);
+        return () => {
+            socket.off('signal', handleSignal);
+        };
+    }, [socket, roomId, createPeerConnection, localStream, processOffer]);
+
+    // Process pending offer once stream is ready
+    useEffect(() => {
+        if (pendingOffer && localStream) {
+            console.log("Processing pending offer now that stream is ready");
+            processOffer(pendingOffer);
+            setPendingOffer(null);
+        }
+    }, [pendingOffer, localStream, processOffer]);
+
+    // Initiator logic: Start Offer once Permission Granted (Stream Ready)
+    useEffect(() => {
+        if (status === 'connected' && isInitiator && localStream && !remoteStream && !peerConnectionRef.current) {
+            const startCall = async () => {
+                // Wait small delay to ensure partner is ready?
+                setTimeout(async () => {
+                    const pc = createPeerConnection();
+                    // Create Offer
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket?.emit('signal', { roomId, signal: offer });
+                }, 1000);
+            };
+            startCall();
+        }
+    }, [status, isInitiator, localStream, remoteStream, createPeerConnection, roomId, socket]);
+
+    // Reset on disconnect
+    useEffect(() => {
+        if (status !== 'connected') {
+            resetPeerConnection();
+        }
+    }, [status]);
+    // --- End WebRTC Logic ---
+
+    // --- Voice Message Logic ---
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
+                // Convert to File for upload compatibility if needed, or just send Blob
+                await uploadAndSendAudio(audioBlob);
+                stream.getTracks().forEach(track => track.stop()); // Stop mic
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            showToast("Error", "Microphone access denied", "error");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
+
+    const uploadAndSendAudio = async (blob: Blob) => {
+        const formData = new FormData();
+        // File name needs extension for backend filter
+        formData.append('file', blob, 'voice_message.webm'); 
+
+        try {
+            const token = Cookies.get('accessToken') || localStorage.getItem('accessToken');
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+            
+            const res = await fetch(`${apiUrl}/upload`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+            
+            if (!res.ok) throw new Error("Upload failed");
+            
+            const data = await res.json();
+            // Assuming data contains filename. NestJS FileInterceptor usually helps.
+            // If returns the file object directly: data.filename
+            
+            if (data && data.filename) {
+                 const fileUrl = `${apiUrl}/uploads/${data.filename}`;
+                 
+                 const messageData = {
+                    roomId,
+                    message: fileUrl,
+                    type: 'audio',
+                    userId: 'me'
+                 };
+                 
+                 chatStore.addMessage({
+                    senderId: 'me',
+                    originalText: fileUrl,
+                    text: fileUrl,
+                    type: 'audio',
+                    timestamp: new Date(),
+                    isMe: true
+                 });
+    
+                 socket?.emit('sendMessage', messageData);
+            }
+
+        } catch (e) {
+            console.error(e);
+            showToast("Error", "Failed to send voice message", "error");
+        }
+    };
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInputText(e.target.value);
 
@@ -502,7 +726,7 @@ export default function StrangerChatPage() {
     }
 
   return (
-    <div className="font-display h-screen flex flex-col bg-background-dark text-white overflow-hidden">
+    <div className="font-display h-[100dvh] flex flex-col bg-background-dark text-white overflow-hidden">
         {/* Top Navigation (Minimal) */}
         <header className="h-16 border-b border-[#333] flex items-center justify-between px-6 lg:px-10 bg-[#151515] shrink-0 z-50 relative">
             <div className="flex items-center gap-3">
@@ -564,38 +788,75 @@ export default function StrangerChatPage() {
                         </div>
                     )}
 
-                    {/* Status: Connected - Video Placeholder */}
+                    {/* Status: Connected - Real Video Feed */}
                     {status === 'connected' && (
                         <>
-                            {/* Simulated Video Feed (Partner) */}
-                            <div className={`absolute inset-0 w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 transition-all duration-700 ${isVideoRevealed ? 'filter-none' : 'blur-3xl scale-110'}`}>
-                                {/* In a real app, this would be <video> for remote stream */}
-                                <img 
-                                    src="/placeholder-user.jpg" 
-                                    alt="Partner"
-                                    className="w-full h-full object-cover opacity-60"
-                                    onError={(e) => {e.currentTarget.style.display = 'none'}} 
-                                />
+                            {/* --- Video Layers --- */}
+                            
+                            {/* REMOTE VIDEO (Partner) */}
+                            {/* Logic: If NOT swapped, it is Main (Background). If swapped, it is PIP (Small). */}
+                            <div 
+                                onClick={() => isSwapped && setIsSwapped(false)}
+                                className={`
+                                    transition-all duration-300 ease-in-out
+                                    ${isSwapped 
+                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer hover:scale-105" 
+                                        : "absolute inset-0 w-full h-full z-0"
+                                    }
+                                    bg-black overflow-hidden
+                                `}
+                            >
+                                {remoteStream ? (
+                                    <video 
+                                        ref={remoteVideoRef}
+                                        autoPlay 
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: 'none' }} // Ensure remote is NOT mirrored
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900/50">
+                                         {/* Placeholder/Loading */}
+                                        <div className="w-16 h-16 border-4 border-white/10 border-t-primary rounded-full animate-spin mb-4"></div>
+                                        <p className="text-white/50 text-sm animate-pulse">Waiting for video...</p>
+                                    </div>
+                                )}
+                                {/* Label for Remote when in PIP */}
+                                {isSwapped && <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">Stranger</div>}
                             </div>
 
-                            {/* Local Video (PIP) */}
-                            <div className="absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 bg-black rounded-xl overflow-hidden shadow-2xl border border-white/20 z-30">
+                            {/* LOCAL VIDEO (You) */}
+                            {/* Logic: If NOT swapped, it is PIP. If swapped, it is Main. */}
+                            <div 
+                                onClick={() => !isSwapped && setIsSwapped(true)}
+                                className={`
+                                    transition-all duration-300 ease-in-out
+                                    ${!isSwapped 
+                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer hover:scale-105" 
+                                        : "absolute inset-0 w-full h-full z-0"
+                                    }
+                                    bg-black overflow-hidden
+                                `}
+                            >
                                 {localStream ? (
                                     <video 
                                         ref={localVideoRef}
                                         autoPlay 
                                         muted 
                                         playsInline
-                                        className="w-full h-full object-cover transform -scale-x-100"
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: 'scaleX(-1)' }} // Always mirror self-view
                                     />
                                 ) : (
-                                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-gray-500">
+                                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500">
                                         <span className="material-symbols-outlined text-3xl mb-2">videocam_off</span>
-                                        <span className="text-xs">No Camera</span>
+                                        <span className="text-xs">Off</span>
                                     </div>
                                 )}
-                                <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">You</div>
+                                {/* Label for Local when in PIP */}
+                                {!isSwapped && <div className="absolute bottom-2 left-2 text-[10px] bg-black/50 px-2 py-0.5 rounded text-white">You</div>}
                             </div>
+
 
                             {/* Permission Modal */}
                             {showPermissionModal && (
@@ -792,7 +1053,11 @@ export default function StrangerChatPage() {
                                     ? 'bg-primary text-black rounded-tr-none' 
                                     : 'bg-[#2a2a2a] text-gray-200 rounded-tl-none'
                                 }`}>
-                                    <p>{msg.text}</p>
+                                    {msg.type === 'audio' ? (
+                                        <audio controls src={msg.text} className="w-[200px] h-8" />
+                                    ) : (
+                                        <p>{msg.text}</p>
+                                    )}
                                 </div>
                                 <span className="text-[10px] text-gray-600 mt-1 mx-1">
                                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -812,29 +1077,7 @@ export default function StrangerChatPage() {
                             </div>
                         )}
 
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Input Area */}
-                    <div className="p-4 bg-[#151515] border-t border-[#333]">
-                        <div className="relative flex items-center gap-2">
-                            <input 
-                                className="flex-1 bg-[#222] border border-[#333] rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary placeholder-gray-600" 
-                                placeholder={status === 'connected' ? "Type a message..." : "Waiting..."}
-                                type="text" 
-                                value={inputText}
-                                onChange={handleInputChange}
-                                onKeyDown={handleKeyDown}
-                                disabled={status !== 'connected'}
-                            />
-                            <button 
-                                onClick={handleSendMessage}
-                                disabled={status !== 'connected' || !inputText.trim()}
-                                className="p-2.5 bg-primary text-black rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-[20px] block">send</span>
-                            </button>
-                        </div>
+                        <div ref={messagesEndRef} /> 
                     </div>
                 </aside>
             </div>
