@@ -20,7 +20,7 @@ export const useAuth = () => {
         try {
             const response = await authService.login(data);
             // Store token in localStorage or cookie
-            localStorage.setItem('accessToken', response.access_token || response.accessToken);
+            localStorage.setItem('accessToken', response.access_token);
             localStorage.setItem('user', JSON.stringify(response.user));
             
             showToast("Success", "Login successful! Redirecting...", "success");
@@ -40,7 +40,7 @@ export const useAuth = () => {
         setError(null);
         try {
             const response = await authService.register(data);
-            localStorage.setItem('accessToken', response.access_token || response.accessToken);
+            localStorage.setItem('accessToken', response.access_token);
             localStorage.setItem('user', JSON.stringify(response.user));
 
             showToast("Success", "Account created successfully!", "success");
