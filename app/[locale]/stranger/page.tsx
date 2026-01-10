@@ -515,14 +515,14 @@ export default function StrangerChatPage() {
                        }
                     }
                 } else if (signal.type === 'candidate' && signal.candidate) {
-                    const pc = peerConnectionRef.current || createPeerConnection();
-                    if (pc.remoteDescription && pc.remoteDescription.type) {
+                    const pc = peerConnectionRef.current;
+                    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
                         try {
                             await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
                         } catch (e) { console.error("Error adding candidate", e); }
                     } else {
-                        // Buffer candidate if remote description not yet set
-                        console.log("Buffering candidate...");
+                        // Buffer candidate if PC doesn't exist or remote description not yet set
+                        console.log("Buffering candidate (no PC or no RemoteDesc)...");
                         remoteCandidates.current.push(signal.candidate);
                     }
                 }
@@ -576,13 +576,25 @@ export default function StrangerChatPage() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // Check supported mime types for better compatibility (especially Safari/pwa on iOS)
-            let options = {};
-            if (MediaRecorder.isTypeSupported('audio/webm')) {
-                options = { mimeType: 'audio/webm' };
-            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-                options = { mimeType: 'audio/mp4' };
+            // Comprehensive mime-type check for better cross-browser support (iOS Safari, Android, Desktop)
+            const mimeTypes = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/mp4',
+                'audio/mpeg',
+                'audio/ogg;codecs=opus',
+                'audio/aac'
+            ];
+
+            let selectedMimeType = '';
+            for (const type of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(type)) {
+                    selectedMimeType = type;
+                    break;
+                }
             }
+            
+            const options = selectedMimeType ? { mimeType: selectedMimeType } : undefined;
             
             const mediaRecorder = new MediaRecorder(stream, options);
             mediaRecorderRef.current = mediaRecorder;
@@ -595,7 +607,12 @@ export default function StrangerChatPage() {
             };
 
             mediaRecorder.onstop = async () => {
-                const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                // Determine the actual mime type used
+                let mimeType = mediaRecorder.mimeType || selectedMimeType || 'audio/mp4'; // Fallback to mp4 for Safari if empty
+                
+                // iOS Safari fix: sometimes mimeType is empty string but data is mp4
+                if (!mimeType) mimeType = 'audio/mp4';
+
                 const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
                 await uploadAndSendAudio(audioBlob, mimeType);
                 stream.getTracks().forEach(track => track.stop()); // Stop mic
@@ -618,14 +635,27 @@ export default function StrangerChatPage() {
 
     const uploadAndSendAudio = async (blob: Blob, mimeType: string) => {
         const formData = new FormData();
-        // Determine extension based on mimeType
-        const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
-        formData.append('file', blob, `voice_message.${ext}`); 
+        
+        // Smart extension detection
+        let ext = 'webm';
+        if (mimeType.includes('mp4') || mimeType.includes('aac') || mimeType.includes('m4a')) {
+            ext = 'mp4';
+        } else if (mimeType.includes('ogg')) {
+            ext = 'ogg';
+        } else if (mimeType.includes('wav')) {
+            ext = 'wav';
+        }
+        
+        // Add timestamp to ensure unique filenames if needed
+        const filename = `voice_${Date.now()}.${ext}`;
+        formData.append('file', blob, filename); 
 
         try {
             const token = Cookies.get('accessToken') || localStorage.getItem('accessToken');
             const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
             
+            showToast("Đang gửi...", "Đang tải lên đoạn ghi âm", "info");
+
             const res = await fetch(`${apiUrl}/upload`, {
                 method: 'POST',
                 headers: {
@@ -637,8 +667,6 @@ export default function StrangerChatPage() {
             if (!res.ok) throw new Error("Upload failed");
             
             const data = await res.json();
-            // Assuming data contains filename. NestJS FileInterceptor usually helps.
-            // If returns the file object directly: data.filename
             
             if (data && data.filename) {
                  const fileUrl = `${apiUrl}/uploads/${data.filename}`;
@@ -647,24 +675,25 @@ export default function StrangerChatPage() {
                     roomId,
                     message: fileUrl,
                     type: 'audio',
-                    userId: 'me'
+                    userId: currentUser?.id || currentUser?._id
                  };
                  
+                 socket?.emit('sendMessage', messageData);
+                 
+                 // Optimistic update
                  chatStore.addMessage({
-                    senderId: 'me',
-                    originalText: fileUrl,
+                    senderId: socket?.id || 'me',
                     text: fileUrl,
+                    originalText: fileUrl,
                     type: 'audio',
                     timestamp: new Date(),
                     isMe: true
                  });
-    
-                 socket?.emit('sendMessage', messageData);
+                 showToast("Đã gửi", "Đoạn ghi âm đã được gửi", "success");
             }
-
-        } catch (e) {
-            console.error(e);
-            showToast("Error", "Failed to send voice message", "error");
+        } catch (error) {
+            console.error("Upload voice error:", error);
+            showToast("Lỗi", "Không thể gửi đoạn ghi âm", "error");
         }
     };
 
@@ -896,7 +925,7 @@ export default function StrangerChatPage() {
                 {/* Left Column: Video/Interaction Area (Expanded) */}
                 <section className={`
                     relative bg-black flex flex-col items-center justify-center overflow-hidden border-b lg:border-b-0 border-[#333] transition-all duration-300
-                    ${mobileViewMode === 'split' ? 'h-[50dvh] lg:h-auto flex-none lg:flex-1' : ''}
+                    ${mobileViewMode === 'split' ? 'h-[35dvh] lg:h-auto flex-none lg:flex-1' : ''}
                     ${mobileViewMode === 'video' ? 'h-full lg:h-auto flex-1' : ''}
                     ${mobileViewMode === 'chat' ? 'h-0 lg:h-auto hidden lg:flex' : ''}
                 `}>

@@ -127,55 +127,63 @@ export const StrangerProfileModal: React.FC<StrangerProfileModalProps> = ({ user
                 </button>
 
                 {/* Left Sidebar (Profile Identity) */}
-                <aside className="w-full md:w-[320px] lg:w-[360px] h-auto md:h-full bg-[#1E1E1E] flex flex-col p-6 lg:p-10 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 relative z-20 shrink-0">
+                <aside className="w-full md:w-[320px] lg:w-[360px] max-h-[35vh] md:max-h-full bg-[#1E1E1E] flex flex-col p-6 lg:p-10 overflow-y-auto border-b md:border-b-0 md:border-r border-white/5 relative z-20 shrink-0 custom-scrollbar">
                     <div className="flex flex-col gap-6 mb-8">
                         {/* Avatar */}
-                        <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-lg overflow-hidden shadow-lg self-start group">
-                             <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-10"></div>
-                             <img 
-                                src={user.avatarUrl || 'https://api.dicebear.com/9.x/avataaars/svg?seed=' + user.username} 
-                                alt={displayName}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                             />
+                        <div className="flex flex-row md:flex-col gap-4 md:gap-6 items-center md:items-start">
+                             <div className="relative w-20 h-20 md:w-32 md:h-32 rounded-lg overflow-hidden shadow-lg shrink-0 group">
+                                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors z-10"></div>
+                                <img 
+                                    src={user.avatarUrl || 'https://api.dicebear.com/9.x/avataaars/svg?seed=' + user.username} 
+                                    alt={displayName}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1 md:gap-2">
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    <h1 className="text-xl md:text-3xl font-semibold tracking-tight text-white line-clamp-1">{displayName}</h1>
+                                    {/* Status Indicator (Fake Online) */}
+                                    <div className="w-2.5 h-2.5 rounded-full bg-[#4DC98A] shadow-[0_0_10px_rgba(77,201,138,0.5)] animate-pulse shrink-0" title="Online"></div>
+                                </div>
+                                <p className="text-[#CBD2D9] text-sm md:text-base font-normal">
+                                    @{username}
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">{displayName}</h1>
-                                {/* Status Indicator (Fake Online) */}
-                                <div className="w-2.5 h-2.5 rounded-full bg-[#4DC98A] shadow-[0_0_10px_rgba(77,201,138,0.5)] animate-pulse" title="Online"></div>
-                            </div>
-                            <p className="text-[#CBD2D9] text-sm md:text-base font-normal leading-relaxed max-w-[90%]">
-                                @{username}
-                            </p>
-                            <p className="text-[#CBD2D9] text-sm md:text-base font-normal leading-relaxed max-w-[90%] mt-2">
-                                {fullProfile?.bio || user.bio || "This user hasn't written a bio yet."}
-                            </p>
-                        </div>
+                        <p className="text-[#CBD2D9] text-sm md:text-base font-normal leading-relaxed max-w-[90%] md:mt-0 hidden md:block">
+                            {fullProfile?.bio || user.bio || "This user hasn't written a bio yet."}
+                        </p>
+                        
+                        {/* Mobile Bio (Collapsible or truncated) */}
+                        <p className="text-[#CBD2D9] text-xs font-normal leading-relaxed line-clamp-2 md:hidden">
+                            {fullProfile?.bio || user.bio || "This user hasn't written a bio yet."}
+                        </p>
 
                         {/* Minimalist Stats */}
                         <div className="flex items-center gap-6 pt-2">
                             <div className="flex flex-col">
-                                <span className="text-white font-bold text-xl tracking-tight">{posts.length}</span>
-                                <span className="text-[#7F8C95] text-xs uppercase tracking-wider font-medium">Moments</span>
+                                <span className="text-white font-bold text-lg md:text-xl tracking-tight">{posts.length}</span>
+                                <span className="text-[#7F8C95] text-[10px] md:text-xs uppercase tracking-wider font-medium">Moments</span>
                             </div>
                             <div className="w-px h-8 bg-white/10"></div>
                             <div className="flex flex-col">
-                                <span className="text-white font-bold text-xl tracking-tight">{fullProfile?.friends?.length || '--'}</span>
-                                <span className="text-[#7F8C95] text-xs uppercase tracking-wider font-medium">Connections</span>
+                                <span className="text-white font-bold text-lg md:text-xl tracking-tight">{fullProfile?.friends?.length || '--'}</span>
+                                <span className="text-[#7F8C95] text-[10px] md:text-xs uppercase tracking-wider font-medium">Connections</span>
                             </div>
                         </div>
 
                          {/* Action Button (Send Message or Add Friend) */}
-                         <div className="flex gap-3 mt-4">
-                            <button className="flex-1 py-3 px-4 rounded-lg bg-[#248f8f] text-white font-semibold text-sm transition-all hover:bg-[#1e7a7a] flex items-center justify-center gap-2">
+                         <div className="flex gap-3 mt-2 md:mt-4">
+                            <button className="flex-1 py-2 md:py-3 px-4 rounded-lg bg-[#248f8f] text-white font-semibold text-sm transition-all hover:bg-[#1e7a7a] flex items-center justify-center gap-2">
                                 <span className="material-symbols-outlined text-[18px]">chat_bubble</span>
-                                <span>Message</span>
+                                <span className="text-xs md:text-sm">Message</span>
                             </button>
                             
                             <button 
                                 onClick={handleFriendAction}
-                                className={`py-3 px-4 rounded-lg border font-semibold text-sm transition-all flex items-center justify-center ${
+                                className={`py-2 md:py-3 px-4 rounded-lg border font-semibold text-sm transition-all flex items-center justify-center ${
                                     isFriend 
                                     ? 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white' 
                                     : 'border-[#F065AB] text-[#F065AB] hover:bg-[#F065AB] hover:text-white'

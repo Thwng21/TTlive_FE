@@ -300,26 +300,42 @@ export default function UserProfilePage() {
                 {/* Moments Grid */}
                 <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 pb-20">
                     {posts.map((post, index) => (
-                        <div key={post._id || index} className="break-inside-avoid relative group rounded-lg overflow-hidden bg-[#252525] hover:shadow-2xl transition-all">
+                        <div key={post._id || index} className="break-inside-avoid relative group rounded-xl overflow-hidden bg-[#1E1E1E] border border-white/5 hover:border-[#248f8f]/30 transition-all shadow-lg hover:shadow-[#248f8f]/10">
                              {post.imageUrl ? (
-                                <img 
-                                    src={post.imageUrl} 
-                                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-                                    alt="Post"
-                                />
+                                <div className="relative">
+                                    <img 
+                                        src={post.imageUrl} 
+                                        className="w-full h-auto object-cover"
+                                        alt="Post"
+                                    />
+                                </div>
                              ) : (
                                 <div className="w-full aspect-square flex items-center justify-center p-6 bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a]">
                                     <p className="text-white text-center font-medium line-clamp-6">{post.caption}</p>
                                 </div>
                              )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                                <div className="flex items-center gap-2 text-white">
-                                    <span className="material-symbols-outlined text-[18px]">favorite</span>
-                                    <span className="text-xs font-medium">{post.likes?.length || 0}</span>
-                                </div>
+                            
+                            {/* Content Block - Always visible on mobile, or just always visible for better UX */}
+                            <div className="p-4 bg-[#1E1E1E]">
                                 {post.caption && post.imageUrl && (
-                                    <p className="text-xs text-gray-200 ml-3 truncate">{post.caption}</p>
+                                    <p className="text-sm text-gray-300 mb-3 line-clamp-3 leading-relaxed">{post.caption}</p>
                                 )}
+                                
+                                <div className="flex items-center justify-between text-[#7F8C95] text-xs pt-3 border-t border-white/5">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1.5 transition-colors hover:text-red-500">
+                                            <span className="material-symbols-outlined text-[18px]">favorite</span>
+                                            <span className="font-medium">{post.likes?.length || 0}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 transition-colors hover:text-[#248f8f]">
+                                            <span className="material-symbols-outlined text-[18px]">chat_bubble</span>
+                                            <span className="font-medium">{post.comments?.length || 0}</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] opacity-60">
+                                        {new Date(post.createdAt).toLocaleDateString()}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     ))}
