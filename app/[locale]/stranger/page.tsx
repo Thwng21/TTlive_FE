@@ -94,6 +94,7 @@ export default function StrangerChatPage() {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+    const remoteCandidates = useRef<any[]>([]); // Buffer for ICE candidates
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [isSwapped, setIsSwapped] = useState(false); // For swapping main/pip view
     const [isInitiator, setIsInitiator] = useState(false);
@@ -435,9 +436,20 @@ export default function StrangerChatPage() {
     // Helper to process offer
     const processOffer = useCallback(async (offerSignal: any) => {
         const pc = peerConnectionRef.current || createPeerConnection();
-        if (pc.signalingState !== 'stable') return; // Avoid glare
+        // if (pc.signalingState !== 'stable') return; // Relax this check for renegotiation potential
         
         await pc.setRemoteDescription(new RTCSessionDescription(offerSignal));
+        
+        // Flush buffered candidates
+        while (remoteCandidates.current.length > 0) {
+            const candidate = remoteCandidates.current.shift();
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+                console.error("Error adding buffered candidate:", e);
+            }
+        }
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket?.emit('signal', { roomId, signal: answer });
@@ -462,10 +474,25 @@ export default function StrangerChatPage() {
                     const pc = peerConnectionRef.current;
                     if (pc && pc.signalingState === 'have-local-offer') {
                        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+                       // Flush buffered candidates
+                       while (remoteCandidates.current.length > 0) {
+                           const candidate = remoteCandidates.current.shift();
+                           try {
+                               await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                           } catch (e) { console.error(e) }
+                       }
                     }
                 } else if (signal.type === 'candidate' && signal.candidate) {
                     const pc = peerConnectionRef.current || createPeerConnection();
-                    await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                    if (pc.remoteDescription && pc.remoteDescription.type) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                        } catch (e) { console.error("Error adding candidate", e); }
+                    } else {
+                        // Buffer candidate if remote description not yet set
+                        console.log("Buffering candidate...");
+                        remoteCandidates.current.push(signal.candidate);
+                    }
                 }
             } catch (err) {
                 console.error('Error handling signal:', err);
@@ -1078,6 +1105,44 @@ export default function StrangerChatPage() {
                         )}
 
                         <div ref={messagesEndRef} /> 
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-4 bg-[#151515] border-t border-[#333] sticky bottom-0 z-30">
+                        <div className="relative flex items-center gap-2">
+                            <input 
+                                className="flex-1 bg-[#222] border border-[#333] rounded-full px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary placeholder-gray-600" 
+                                placeholder={isRecording ? "Recording..." : (status === 'connected' ? "Type a message..." : "Waiting...")}
+                                type="text" 
+                                value={inputText}
+                                onChange={handleInputChange}
+                                onKeyDown={handleKeyDown}
+                                disabled={status !== 'connected' || isRecording}
+                            />
+                            
+                            {/* Voice Button */}
+                            <button 
+                                onMouseDown={startRecording}
+                                onMouseUp={stopRecording}
+                                onTouchStart={startRecording} 
+                                onTouchEnd={stopRecording}   
+                                disabled={status !== 'connected'}
+                                className={`p-2.5 rounded-full transition-colors flex items-center justify-center
+                                    ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}
+                                `}
+                                title="Hold to record"
+                            >
+                                <span className="material-symbols-outlined text-[20px] block">mic</span>
+                            </button>
+
+                            <button 
+                                onClick={handleSendMessage}
+                                disabled={status !== 'connected' || !inputText.trim()}
+                                className="p-2.5 bg-primary text-black rounded-full hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[20px] block">send</span>
+                            </button>
+                        </div>
                     </div>
                 </aside>
             </div>
