@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client';
 // Singleton instance
 let socket: Socket | undefined;
 
-const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export const getSocket = (): Socket => {
     if (!socket) {
