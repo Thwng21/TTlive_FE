@@ -4,6 +4,7 @@ import { feedService } from '@/services/feed.service';
 import { usersService } from '@/services/users.service';
 import { friendsService } from '@/services/friends.service';
 import { useToast } from '@/context/ToastContext';
+import PostItem from '@/components/features/feed/PostItem';
 
 interface StrangerProfileModalProps {
     user: {
@@ -241,85 +242,16 @@ export const StrangerProfileModal: React.FC<StrangerProfileModalProps> = ({ user
 
                         {/* Vertical Feed (Facebook Style) */}
                         <div className="max-w-xl mx-auto space-y-6 pb-20">
-                            {filteredPosts.map((post, index) => {
-                                const postDate = post.createdAt ? new Date(post.createdAt) : new Date();
-                                const timeAgo = Math.floor((new Date().getTime() - postDate.getTime()) / 1000);
-                                let timeDisplay = '';
-                                if (timeAgo < 60) timeDisplay = 'Just now';
-                                else if (timeAgo < 3600) timeDisplay = `${Math.floor(timeAgo / 60)}m ago`;
-                                else if (timeAgo < 86400) timeDisplay = `${Math.floor(timeAgo / 3600)}h ago`;
-                                else timeDisplay = postDate.toLocaleDateString();
-
-                                return (
-                                <div key={post._id || index} className="bg-[#1E1E1E] rounded-xl border border-white/5 overflow-hidden animate-fade-in text-left">
-                                    {/* Post Header */}
-                                    <div className="p-4 flex items-center gap-3">
-                                        <img 
-                                            src={user.avatarUrl || 'https://api.dicebear.com/9.x/avataaars/svg?seed=' + user.username} 
-                                            alt={displayName}
-                                            className="w-10 h-10 rounded-full object-cover border border-white/10"
-                                        />
-                                        <div className="flex flex-col">
-                                            <span className="text-white font-semibold text-sm">
-                                                {user.displayName || user.username || 'Unknown User'}
-                                            </span>
-                                            <div className="flex items-center gap-1 text-[#7F8C95] text-xs">
-                                                <span>{timeDisplay}</span>
-                                                <span>•</span>
-                                                <span className="material-symbols-outlined text-[12px]">public</span>
-                                            </div>
-                                        </div>
-                                        <button className="ml-auto text-[#7F8C95] hover:text-white">
-                                            <span className="material-symbols-outlined">more_horiz</span>
-                                        </button>
-                                    </div>
-
-                                    {/* content text */}
-                                    {post.caption && (
-                                        <div className="px-4 pb-3">
-                                             <p className="text-[#E4E6EB] text-sm whitespace-pre-wrap leading-relaxed">{post.caption}</p>
-                                        </div>
-                                    )}
-
-                                    {/* content image */}
-                                    {post.imageUrl && (
-                                        <div className="w-full bg-black">
-                                            <img 
-                                                src={post.imageUrl} 
-                                                className="w-full h-auto max-h-[600px] object-contain"
-                                                alt="Post"
-                                            />
-                                        </div>
-                                    )}
-
-                                    {/* Post Footer (Stats & Actions) */}
-                                    <div className="p-3 border-t border-white/5">
-                                        <div className="flex items-center justify-between text-[#7F8C95] text-xs mb-3 px-1">
-                                            <div className="flex items-center gap-1">
-                                                <span className="w-4 h-4 rounded-full bg-[#248f8f] flex items-center justify-center">
-                                                    <span className="material-symbols-outlined text-[10px] text-white">thumb_up</span>
-                                                </span>
-                                                <span>{post.likes?.length || 0}</span>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-3 gap-1">
-                                            <button className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-white/5 text-[#B0B3B8] hover:text-white transition-colors">
-                                                <span className="material-symbols-outlined text-[20px]">thumb_up</span>
-                                                <span className="text-sm font-medium">Like</span>
-                                            </button>
-                                             <button className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-white/5 text-[#B0B3B8] hover:text-white transition-colors">
-                                                <span className="material-symbols-outlined text-[20px]">chat_bubble</span>
-                                                <span className="text-sm font-medium">Comment</span>
-                                            </button>
-                                             <button className="flex items-center justify-center gap-2 py-2 rounded-lg hover:bg-white/5 text-[#B0B3B8] hover:text-white transition-colors">
-                                                <span className="material-symbols-outlined text-[20px]">share</span>
-                                                <span className="text-sm font-medium">Share</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )})}
+                            {filteredPosts.map((post, index) => (
+                                <PostItem 
+                                    key={post._id || index}
+                                    post={post}
+                                    currentUser={{ _id: currentUserId }}
+                                    onPostUpdated={(updatedPost) => {
+                                        setPosts((prev) => prev.map((p) => (p._id && updatedPost._id && p._id === updatedPost._id ? updatedPost : p)));
+                                    }}
+                                />
+                            ))}
                         </div>
                      </div>
                 </main>

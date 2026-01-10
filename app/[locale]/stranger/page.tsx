@@ -107,6 +107,9 @@ export default function StrangerChatPage() {
         isStartedRef.current = isStarted;
     }, [isStarted]);
 
+    // Handle skipped camera explicitly
+    const [isCameraSkipped, setIsCameraSkipped] = useState(false);
+
     // Voice Message State
     const [isRecording, setIsRecording] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -196,8 +199,18 @@ export default function StrangerChatPage() {
     }, [localStream, status]);
 
     useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            remoteVideoRef.current.srcObject = remoteStream;
+        }
+    }, [remoteStream, status]);
+
+    useEffect(() => {
         if (status === 'connected') {
             setIsVideoRevealed(false); // Reset video state on new connection
+            // Reset skipped state on new connection match to prompt again if needed 
+            // OR keep it if user wants to stay hidden? 
+            // Let's keep it false to force choice or default behavior
+             setIsCameraSkipped(false);
         }
     }, [status]);
 
@@ -467,14 +480,26 @@ export default function StrangerChatPage() {
         if (!socket) return;
 
         const handleSignal = async (data: { senderId: string, signal: any }) => {
+            console.log("Received signal data:", data);
+            
+            if (!data || !data.signal) {
+                console.warn("Received invalid signal data:", data);
+                return;
+            }
+
             const { signal } = data;
             
             try {
+                if (!signal.type) {
+                     console.warn("Signal missing type:", signal);
+                     return;
+                }
+
                 if (signal.type === 'offer') {
-                    if (localStream) {
+                    if (localStream || isCameraSkipped) { // Allow if stream ready OR user skipped
                         await processOffer(signal);
                     } else {
-                        console.log("Received offer but strictly waiting for local stream...");
+                        console.log("Received offer but waiting for local stream or user decision...");
                         setPendingOffer(signal);
                     }
                 } else if (signal.type === 'answer') {
@@ -510,20 +535,20 @@ export default function StrangerChatPage() {
         return () => {
             socket.off('signal', handleSignal);
         };
-    }, [socket, roomId, createPeerConnection, localStream, processOffer]);
+    }, [socket, roomId, createPeerConnection, localStream, processOffer, isCameraSkipped]);
 
-    // Process pending offer once stream is ready
+    // Process pending offer once stream is ready or skipped
     useEffect(() => {
-        if (pendingOffer && localStream) {
-            console.log("Processing pending offer now that stream is ready");
+        if (pendingOffer && (localStream || isCameraSkipped)) {
+            console.log("Processing pending offer now that stream is ready/skipped");
             processOffer(pendingOffer);
             setPendingOffer(null);
         }
-    }, [pendingOffer, localStream, processOffer]);
+    }, [pendingOffer, localStream, isCameraSkipped, processOffer]);
 
-    // Initiator logic: Start Offer once Permission Granted (Stream Ready)
+    // Initiator logic: Start Offer once Permission Granted (Stream Ready) OR Skipped
     useEffect(() => {
-        if (status === 'connected' && isInitiator && localStream && !remoteStream && !peerConnectionRef.current) {
+        if (status === 'connected' && isInitiator && (localStream || isCameraSkipped) && !remoteStream && !peerConnectionRef.current) {
             const startCall = async () => {
                 // Wait small delay to ensure partner is ready?
                 setTimeout(async () => {
@@ -536,7 +561,7 @@ export default function StrangerChatPage() {
             };
             startCall();
         }
-    }, [status, isInitiator, localStream, remoteStream, createPeerConnection, roomId, socket]);
+    }, [status, isInitiator, localStream, isCameraSkipped, remoteStream, createPeerConnection, roomId, socket]);
 
     // Reset on disconnect
     useEffect(() => {
@@ -550,7 +575,16 @@ export default function StrangerChatPage() {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
+            
+            // Check supported mime types for better compatibility (especially Safari/pwa on iOS)
+            let options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm')) {
+                options = { mimeType: 'audio/webm' };
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                options = { mimeType: 'audio/mp4' };
+            }
+            
+            const mediaRecorder = new MediaRecorder(stream, options);
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
 
@@ -561,9 +595,9 @@ export default function StrangerChatPage() {
             };
 
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
-                // Convert to File for upload compatibility if needed, or just send Blob
-                await uploadAndSendAudio(audioBlob);
+                const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+                await uploadAndSendAudio(audioBlob, mimeType);
                 stream.getTracks().forEach(track => track.stop()); // Stop mic
             };
 
@@ -571,21 +605,22 @@ export default function StrangerChatPage() {
             setIsRecording(true);
         } catch (error) {
             console.error("Error accessing microphone:", error);
-            showToast("Error", "Microphone access denied", "error");
+            showToast("Error", "Microphone access denied or not supported.", "error");
         }
     };
 
     const stopRecording = () => {
-        if (mediaRecorderRef.current && isRecording) {
+        if (mediaRecorderRef.current && isRecording && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
             setIsRecording(false);
         }
     };
 
-    const uploadAndSendAudio = async (blob: Blob) => {
+    const uploadAndSendAudio = async (blob: Blob, mimeType: string) => {
         const formData = new FormData();
-        // File name needs extension for backend filter
-        formData.append('file', blob, 'voice_message.webm'); 
+        // Determine extension based on mimeType
+        const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+        formData.append('file', blob, `voice_message.${ext}`); 
 
         try {
             const token = Cookies.get('accessToken') || localStorage.getItem('accessToken');
@@ -911,7 +946,7 @@ export default function StrangerChatPage() {
                                 className={`
                                     transition-all duration-300 ease-in-out
                                     ${isSwapped 
-                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer hover:scale-105" 
+                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer" 
                                         : "absolute inset-0 w-full h-full z-0"
                                     }
                                     bg-black overflow-hidden
@@ -943,7 +978,7 @@ export default function StrangerChatPage() {
                                 className={`
                                     transition-all duration-300 ease-in-out
                                     ${!isSwapped 
-                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer hover:scale-105" 
+                                        ? "absolute bottom-6 right-6 w-32 h-48 md:w-48 md:h-72 rounded-xl border border-white/20 shadow-2xl z-30 cursor-pointer" 
                                         : "absolute inset-0 w-full h-full z-0"
                                     }
                                     bg-black overflow-hidden
@@ -955,7 +990,8 @@ export default function StrangerChatPage() {
                                         autoPlay 
                                         muted 
                                         playsInline
-                                        className="w-full h-full object-cover scale-x-[-1]"
+                                        className="w-full h-full object-cover"
+                                        style={{ transform: 'scaleX(-1)' }}
                                     />
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-500">
@@ -998,7 +1034,10 @@ export default function StrangerChatPage() {
                                                   Cho phép truy cập
                                               </button>
                                               <button 
-                                                  onClick={() => setShowPermissionModal(false)}
+                                                  onClick={() => {
+                                                      setShowPermissionModal(false);
+                                                      setIsCameraSkipped(true);
+                                                  }}
                                                   className="w-full py-3.5 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 font-medium rounded-xl transition-colors"
                                               >
                                                   Tiếp tục không Video
@@ -1205,17 +1244,16 @@ export default function StrangerChatPage() {
                             
                             {/* Voice Button */}
                             <button 
-                                onMouseDown={startRecording}
-                                onMouseUp={stopRecording}
-                                onTouchStart={startRecording} 
-                                onTouchEnd={stopRecording}   
+                                onClick={() => isRecording ? stopRecording() : startRecording()}
                                 disabled={status !== 'connected'}
                                 className={`p-2.5 rounded-full transition-colors flex items-center justify-center
                                     ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}
                                 `}
-                                title="Hold to record"
+                                title={isRecording ? "Click to send" : "Click to record"}
                             >
-                                <span className="material-symbols-outlined text-[20px] block">mic</span>
+                                <span className="material-symbols-outlined text-[20px] block">
+                                    {isRecording ? 'send' : 'mic'}
+                                </span>
                             </button>
 
                             <button 
