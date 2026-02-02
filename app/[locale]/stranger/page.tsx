@@ -437,11 +437,28 @@ export default function StrangerChatPage() {
             }
         };
 
+        pc.oniceconnectionstatechange = () => {
+            console.log("ICE Connection State:", pc.iceConnectionState);
+            if (pc.iceConnectionState === 'failed') {
+                showToast("Kết nối k ổn định", "Đang thử kết nối lại...", "warning");
+                // Optional: restartIce() if supported or negotiate restart
+            }
+        };
+
         pc.ontrack = (event) => {
             console.log('Received remote track', event.streams[0]);
-            setRemoteStream(event.streams[0]);
+            let stream = event.streams[0];
+            
+            // Fallback if no stream is associated with the track
+            if (!stream) {
+                console.log("No stream associated with track, creating new MediaStream");
+                stream = new MediaStream();
+                stream.addTrack(event.track);
+            }
+
+            setRemoteStream(stream);
             if (remoteVideoRef.current) {
-                remoteVideoRef.current.srcObject = event.streams[0];
+                remoteVideoRef.current.srcObject = stream;
             }
         };
 
@@ -548,10 +565,15 @@ export default function StrangerChatPage() {
 
     // Initiator logic: Start Offer once Permission Granted (Stream Ready) OR Skipped
     useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
+
         if (status === 'connected' && isInitiator && (localStream || isCameraSkipped) && !remoteStream && !peerConnectionRef.current) {
             const startCall = async () => {
                 // Wait small delay to ensure partner is ready?
-                setTimeout(async () => {
+                timeoutId = setTimeout(async () => {
+                    // Double check connection state inside timeout
+                    if (peerConnectionRef.current) return;
+                    
                     const pc = createPeerConnection();
                     // Create Offer
                     const offer = await pc.createOffer();
@@ -561,6 +583,10 @@ export default function StrangerChatPage() {
             };
             startCall();
         }
+
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+        };
     }, [status, isInitiator, localStream, isCameraSkipped, remoteStream, createPeerConnection, roomId, socket]);
 
     // Reset on disconnect
